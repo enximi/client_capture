@@ -141,6 +141,10 @@ pub struct ClientCapture {
     capture_handle: Option<JoinHandle<()>>,
     /// 可以接受的截图延时
     delay: Duration,
+    // 捕获鼠标
+    cursor_capture_settings: CursorCaptureSettings,
+    // 绘制边框
+    draw_border_settings: DrawBorderSettings,
 }
 
 impl ClientCapture {
@@ -155,6 +159,8 @@ impl ClientCapture {
         window_title: String,
         border: Option<(u32, u32, u32, u32)>,
         delay: Option<Duration>,
+        cursor_capture_settings: Option<bool>,
+        draw_border_settings: Option<bool>,
     ) -> Self {
         let (pause_tx, pause_rx) = watch::channel(false);
         let (stop_tx, stop_rx) = watch::channel(false);
@@ -171,6 +177,16 @@ impl ClientCapture {
             img_rx,
             capture_handle: None,
             delay: delay.unwrap_or(Duration::from_millis(50)),
+            cursor_capture_settings: match cursor_capture_settings {
+                None => CursorCaptureSettings::Default,
+                Some(true) => CursorCaptureSettings::WithCursor,
+                Some(false) => CursorCaptureSettings::WithoutCursor,
+            },
+            draw_border_settings: match draw_border_settings {
+                None => DrawBorderSettings::Default,
+                Some(true) => DrawBorderSettings::WithBorder,
+                Some(false) => DrawBorderSettings::WithoutBorder,
+            },
         }
     }
 
@@ -190,6 +206,8 @@ impl ClientCapture {
         let stop_rx = self.stop_rx.clone();
         let img_tx = self.img_tx.clone();
         let border = self.border;
+        let cursor_capture_settings = self.cursor_capture_settings.clone();
+        let draw_border_settings = self.draw_border_settings.clone();
         let capture_handle = spawn(async move {
             loop {
                 if *stop_rx.borrow() {
@@ -207,8 +225,8 @@ impl ClientCapture {
                         let window = Window::from_raw_hwnd(hwnd);
                         let settings = Settings::new(
                             window,
-                            CursorCaptureSettings::Default,
-                            DrawBorderSettings::Default,
+                            cursor_capture_settings.clone(),
+                            draw_border_settings.clone(),
                             ColorFormat::Rgba8,
                             message,
                         );
